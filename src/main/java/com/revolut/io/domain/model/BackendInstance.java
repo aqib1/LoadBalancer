@@ -1,3 +1,3 @@
-package com.revolut.io.domain.model;
+package com.revolut.io.model;
 
-public record BackendInstance(String address) { }
+public record BackendInstance(String address, int weight) { }
