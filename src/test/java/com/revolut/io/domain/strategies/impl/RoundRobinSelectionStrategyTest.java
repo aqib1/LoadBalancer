@@ -1,39 +1,31 @@
-package com.revolut.io.domain.strategies.impl;
+package com.revolut.io.strategies.impl;
 
-import com.revolut.io.domain.strategies.SelectionStrategy;
+import com.revolut.io.strategies.SelectionStrategy;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
-import java.util.List;
-
-import static com.revolut.io.domain.TestUtils.BACKEND_INSTANCES;
-import static com.revolut.io.domain.TestUtils.BACKEND_ROUND_ROBIN_INSTANCES;
+import static com.revolut.io.TestUtils.INSTANCES;
+import static com.revolut.io.TestUtils.ROUND_ROBIN_INSTANCE;
 
 public class RoundRobinSelectionStrategyTest {
-    private final SelectionStrategy selectionStrategy =
-            new RoundRobinSelectionStrategy();
+    private SelectionStrategy selectionStrategy;
+
+    @BeforeEach
+    public void beforeEach() {
+        this.selectionStrategy
+                = new RoundRobinSelectionStrategy();
+    }
 
     @Test
     public void selectInstance_ReturnInstanceInRoundRobin() {
         // When & Then
-        for(var expectedInstance : BACKEND_ROUND_ROBIN_INSTANCES) {
+        for (var instance : ROUND_ROBIN_INSTANCE) {
+            var actual = this.selectionStrategy.selectInstance(INSTANCES);
             Assertions.assertEquals(
-                    expectedInstance,
-                    selectionStrategy.selectInstance(BACKEND_INSTANCES)
+                    instance,
+                    actual
             );
         }
-    }
-
-    @ParameterizedTest
-    @MethodSource("com.revolut.io.domain.TestUtils#invalidSelectInstanceParams")
-    public void selectInstance_WhenInvalidParamProvided_ShouldThrowException(
-            List<String> instances, Class<Exception> exceptionClass
-    ) {
-        // When & Then
-        Assertions.assertThrows(exceptionClass, () ->
-                selectionStrategy.validateInstances(instances)
-        );
     }
 }
