@@ -1,9 +1,9 @@
-package com.revolut.io.domain;
+package com.revolut.io;
 
-import com.revolut.io.domain.model.BackendInstance;
-import com.revolut.io.domain.strategies.SelectionStrategy;
 import com.revolut.io.exceptions.EmptyLoadBalancerException;
 import com.revolut.io.exceptions.LoadBalancerOverflowException;
+import com.revolut.io.model.BackendInstance;
+import com.revolut.io.strategies.SelectionStrategy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,141 +14,108 @@ import static org.mockito.Mockito.when;
 
 public class LoadBalancerTest {
     private static final int CAPACITY = 10;
-    private LoadBalancer loadBalancer;
     private final SelectionStrategy selectionStrategy = mock(SelectionStrategy.class);
+    private LoadBalancer loadBalancer;
 
     @BeforeEach
     public void beforeEach() {
-        this.loadBalancer = new LoadBalancer(
-                CAPACITY,
-                selectionStrategy
-        );
+        this.loadBalancer = new LoadBalancer(selectionStrategy);
     }
 
     @Test
     public void addInstance_WhenLoadBalancerHaveCapacity_ReturnTrue() {
         // Given
-        var backendInstance = new BackendInstance("127.0.0.1");
+        var instance = new BackendInstance("127.0.0.1", 5);
 
         // When & Then
         Assertions.assertTrue(
-                this.loadBalancer.addInstance(backendInstance)
+                loadBalancer.addInstance(instance)
         );
     }
 
     @Test
-    public void addInstance_WhenLoadBalancerHaveCapacity_InstanceIsAlreadyAdded_ReturnFalse() {
+    public void addInstance_WhenLoadBalancerHaveCapacity_ReturnFalseIfAlreadyExists() {
         // Given
-        var backendInstance = new BackendInstance("127.0.0.1");
+        var instance = new BackendInstance("127.0.0.1", 5);
 
         // When & Then
         Assertions.assertTrue(
-                this.loadBalancer.addInstance(backendInstance)
+                loadBalancer.addInstance(instance)
         );
+        Assertions.assertFalse(
+                loadBalancer.addInstance(instance)
+        );
+    }
+
+    @Test
+    public void addInstance_WhenLoadBalancerHaveNoCapacity_ShouldThrowException() {
+        // Given
+        addBackendInstances();
+
+        // When & Then
+        Assertions.assertThrows(
+                LoadBalancerOverflowException.class,
+                () -> loadBalancer.addInstance(new BackendInstance("127.0.0.11", 5))
+        );
+    }
+
+    @Test
+    public void removeInstance_WhenLoadBalancerHaveInstance_ReturnTrue() {
+        // Given
+        addBackendInstances();
+
+        Assertions.assertTrue(
+                loadBalancer.removeInstance(new BackendInstance("127.0.0.1", 5))
+        );
+    }
+
+    @Test
+    public void removeInstance_WhenLoadBalancerDoesNotHaveInstance_ReturnFalse() {
+        // Given
+        addBackendInstances();
 
         Assertions.assertFalse(
-                this.loadBalancer.addInstance(backendInstance)
+                loadBalancer.removeInstance(new BackendInstance("127.0.0.21", 5))
         );
     }
 
     @Test
-    public void addInstance_WhenLoadBalancerHaveNoCapacity_ThrowException() {
-        // Given & When
-        addInstancesToLoadBalancer();
-
+    public void removeInstance_WhenLoadBalancerIsEmpty_ThrowException() {
         // When & Then
-        Assertions.assertThrows(LoadBalancerOverflowException.class, () ->
-                this.loadBalancer.addInstance(new BackendInstance(
-                        "127.0.0.22"
-                )));
-    }
-
-    @Test
-    public void addInstance_WhenNullInstanceProvided_ThrowException() {
-        // When & Then
-        Assertions.assertThrows(NullPointerException.class, () ->
-                this.loadBalancer.addInstance(null));
-    }
-
-    @Test
-    public void removeInstance_WhenInstanceFoundAndRemoved_ReturnTrue() {
-        // Given & When
-        addInstancesToLoadBalancer();
-
-        // When & Then
-        Assertions.assertTrue(
-                this.loadBalancer.removeInstance(
-                        new BackendInstance("127.0.0.1")
-                )
-        );
-    }
-
-    @Test
-    public void removeInstance_WhenLoadBalancerEmpty_ShouldThrowException() {
         Assertions.assertThrows(
                 EmptyLoadBalancerException.class,
-                () -> this.loadBalancer.removeInstance(
-                        new BackendInstance("127.0.0.1")
-                )
+                () -> loadBalancer.removeInstance(new BackendInstance("127.0.0.11", 5))
         );
     }
 
     @Test
-    public void removeInstance_WhenProvidedInstanceNull_ShouldThrowException() {
-        Assertions.assertThrows(
-                NullPointerException.class,
-                () -> this.loadBalancer.removeInstance(null)
-        );
-    }
-
-    @Test
-    public void removeInstance_WhenInstanceIsAlreadyRemoved_ShouldReturnFalse() {
-        // Given & When
-        addInstancesToLoadBalancer();
-
+    public void selectInstance_WhenSelectionStrategyProvided_ReturnInstance() {
         // When & Then
-        Assertions.assertTrue(
-                this.loadBalancer.removeInstance(
-                        new BackendInstance("127.0.0.1")
-                )
-        );
-
-        Assertions.assertFalse(
-                this.loadBalancer.removeInstance(
-                        new BackendInstance("127.0.0.1")
-                )
-        );
-    }
-
-    @Test
-    public void selectInstance_ShouldReturnNextInstance() {
-        // Given & When
-        var expectedInstance = "127.0.0.1";
-        when(selectionStrategy.selectInstance(anyList()))
-                .thenReturn(expectedInstance);
-
-        // When
-        addInstancesToLoadBalancer();
-        var actualInstance = loadBalancer.selectInstance();
-        Assertions.assertEquals(
-                new BackendInstance(expectedInstance),
-                actualInstance
-        );
-    }
-
-    @Test
-    public void selectInstance_WhenInstanceMapIsEmpty_ThrowException() {
         Assertions.assertThrows(
                 EmptyLoadBalancerException.class,
                 () -> loadBalancer.selectInstance()
         );
     }
 
-    private void addInstancesToLoadBalancer() {
+    @Test
+    public void selectInstance_WhenLoadBalancerIsEmpty_ThrowException() {
+        // When
+        addBackendInstances();
+        var expected = new BackendInstance("127.0.0.1", 5);
+        when(selectionStrategy.selectInstance(anyList()))
+                .thenReturn(expected);
+
+        // Then
+        var actual = loadBalancer.selectInstance();
+        Assertions.assertEquals(
+                expected,
+                actual
+        );
+    }
+
+    private void addBackendInstances() {
         for (int i = 0; i < CAPACITY; i++) {
-            this.loadBalancer.addInstance(new BackendInstance(
-                    "127.0.0." + i
-            ));
+            loadBalancer.addInstance(new BackendInstance("127.0.0." + i, i));
         }
     }
 }
